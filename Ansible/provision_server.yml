@@ -1,0 +1,49 @@
+# 
+# example:  
+#
+#   ansible-playbook provision_server.yml --extra-vars "target=vagrant server_hostname=HomeSite"
+#
+---
+- hosts: "{{ target }}"
+  gather_facts: true
+  become: yes
+  user: ubuntu
+  vars:
+  - document_root: /var/www
+  - the_group: ubuntu
+  - user: ubuntu
+  - extra_packages_to_install:  
+    - htop
+  - jenkins_plugins:
+    - pipeline-build-step
+    - blueocean
+    - rebuilder
+  vars_files:
+  - vault_files/users_list.yml
+  roles:
+  - { role: mm0.baseline, target: "{{ target }}", extra_packages: "{{ extra_packages_to_install }}" }
+  # create 'devs' group 
+  - { role: mm0.group,
+      the_groups: [ 
+        { name: "devs", state: "present"},
+        { name: "nagios", state: "present"}
+      ]
+    }  
+#    - user
+  - mm0.sudo
+  - mm0.bash
+  - mm0.vimrc
+  # create env directory
+  - { role: mm0.touch,
+      owner: "{{ ansible_ssh_user }}",
+      group: "{{ ansible_ssh_user }}",
+      mode: "0644",
+      files: "/var/log/application.log"
+  }
+  - { role: mm0.ntp }
+  - { role: geerlingguy.jenkins,
+      jenkins_version: "2.3.4" }
+  post_tasks:
+
+  - name: Start Jenkins and enable it
+    service: name=jenkins state=started enabled=yes
